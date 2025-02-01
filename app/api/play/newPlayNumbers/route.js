@@ -1,5 +1,6 @@
 // app/api/posts/route.js
 // 90 possible combinations (after applying ordering & exclusion rules)
+// (Note: Depending on interpretation you mentioned 103; adjust ranges if needed.)
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/app/utils/firebaseAdmin';
 
@@ -36,88 +37,100 @@ function isExcluded(num, position, excludedNumbers) {
     return false;
 }
 
+// Helper: Fisher–Yates shuffle to randomize an array in place
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+// Pre-generate all valid Pick 4 combinations given your rules.
+// Allowed digit ranges are:
+//   first:  0–2
+//   second: 2–5
+//   third:  4–7
+//   fourth: 7–9
+// And the digits must be strictly ascending.
+function generateAllCombinationsPick4(excludedNumbers) {
+    const combinations = [];
+    for (let first = 0; first <= 2; first++) {
+        if (isExcluded(first, 0, excludedNumbers)) continue;
+        for (let second = 2; second <= 5; second++) {
+            if (isExcluded(second, 1, excludedNumbers)) continue;
+            for (let third = 4; third <= 7; third++) {
+                if (isExcluded(third, 2, excludedNumbers)) continue;
+                for (let fourth = 7; fourth <= 9; fourth++) {
+                    if (isExcluded(fourth, 3, excludedNumbers)) continue;
+                    if (first < second && second < third && third < fourth) {
+                        combinations.push([first, second, third, fourth]);
+                    }
+                }
+            }
+        }
+    }
+    return combinations;
+}
+
+// Generate draws by selecting from the pre-generated pool while ensuring that
+// no digit is re-used in the same position across different draws.
 function generateDraws(numberOfDraws = 5, latestDraw, excludedNumbers) {
-    // Used sets for ensuring that no number is re-used in the same digit position.
+    // Build the full pool of valid combinations and randomize it.
+    let pool = generateAllCombinationsPick4(excludedNumbers);
+    pool = shuffle(pool);
+
+    const selectedDraws = [];
+    // Sets to track which digits have been used in each position.
     const usedFirstNumbers = new Set();
     const usedSecondNumbers = new Set();
     const usedThirdNumbers = new Set();
     const usedFourthNumbers = new Set();
-    const draws = [];
 
-    function isValidDraw(draw) {
-        const [first, second, third, fourth] = draw;
+    while (selectedDraws.length < numberOfDraws && pool.length > 0) {
+        // Find the index of the first candidate that does not conflict with previously used digits.
+        const candidateIndex = pool.findIndex(draw => {
+            const [first, second, third, fourth] = draw;
+            return !usedFirstNumbers.has(first) &&
+                !usedSecondNumbers.has(second) &&
+                !usedThirdNumbers.has(third) &&
+                !usedFourthNumbers.has(fourth);
+        });
 
-        // Check against any excluded numbers provided
-        for (let i = 0; i < 4; i++) {
-            if (isExcluded(draw[i], i, excludedNumbers)) return false;
-        }
+        if (candidateIndex === -1) break; // No candidate remains that meets the uniqueness rules.
 
-        // Ensure all four digits are distinct
-        if (new Set(draw).size !== 4) return false;
+        // Select and remove the candidate from the pool.
+        const candidate = pool[candidateIndex];
+        pool.splice(candidateIndex, 1);
+        selectedDraws.push(candidate);
 
-        // Validate digit ranges
-        if (!(first >= 0 && first <= 2)) return false;
-        if (!(second >= 2 && second <= 5)) return false;
-        if (!(third >= 4 && third <= 7)) return false;
-        if (!(fourth >= 7 && fourth <= 9)) return false;
+        // Mark the candidate digits as used.
+        usedFirstNumbers.add(candidate[0]);
+        usedSecondNumbers.add(candidate[1]);
+        usedThirdNumbers.add(candidate[2]);
+        usedFourthNumbers.add(candidate[3]);
 
-        // Ensure the numbers are in strictly ascending order
-        if (!(first < second && second < third && third < fourth)) return false;
-
-        // Ensure numbers have not been used in the same position before
-        if (usedFirstNumbers.has(first)) return false;
-        if (usedSecondNumbers.has(second)) return false;
-        if (usedThirdNumbers.has(third)) return false;
-        if (usedFourthNumbers.has(fourth)) return false;
-
-        return true;
+        // Optionally, filter out remaining combinations that conflict with the used digits.
+        pool = pool.filter(draw => {
+            const [first, second, third, fourth] = draw;
+            return !usedFirstNumbers.has(first) &&
+                !usedSecondNumbers.has(second) &&
+                !usedThirdNumbers.has(third) &&
+                !usedFourthNumbers.has(fourth);
+        });
     }
 
-    function generateSingleDraw() {
-        const maxAttempts = 1000;
-        let attempts = 0;
-
-        while (attempts < maxAttempts) {
-            // Generate each digit according to the new ranges:
-            const first = Math.floor(Math.random() * 3);         // 0-2
-            const second = Math.floor(Math.random() * 4) + 2;      // 2-5
-            const third = Math.floor(Math.random() * 4) + 4;       // 4-7
-            const fourth = Math.floor(Math.random() * 3) + 7;      // 7-9
-
-            const draw = [first, second, third, fourth];
-
-            if (isValidDraw(draw)) {
-                usedFirstNumbers.add(first);
-                usedSecondNumbers.add(second);
-                usedThirdNumbers.add(third);
-                usedFourthNumbers.add(fourth);
-                return draw;
-            }
-            attempts++;
-        }
-
-        return null; // Could not generate a valid draw
-    }
-
-    while (draws.length < numberOfDraws) {
-        const draw = generateSingleDraw();
-        if (draw === null) {
-            break; // No more valid combinations possible
-        }
-        draws.push(draw);
-    }
-
-    return draws;
+    return selectedDraws;
 }
 
-// Modified POST handler for generating pick4 draws
+// Modified POST handler for generating Pick 4 draws using pre-generated combinations.
 export async function POST(req) {
     try {
         const [prevMonth, currentMonth] = getMonths();
         const firestore = adminDb.firestore();
         const body = await req.json();
 
-        // Ensure excludedNumbers includes keys for all four positions.
+        // Ensure excludedNumbers contains arrays for all four positions.
         const excludedNumbersInput = body.excludedNumbers || {};
         const excludedNumbers = {
             first: excludedNumbersInput.first || [],
@@ -126,7 +139,7 @@ export async function POST(req) {
             fourth: excludedNumbersInput.fourth || [],
         };
 
-        // Query for draws from the current and previous months
+        // Query for draws from the current and previous months.
         const drawsCollection = firestore
             .collection("draws")
             .where("drawMonth", "in", [currentMonth, prevMonth]);
@@ -141,8 +154,7 @@ export async function POST(req) {
         }
 
         const allDraws = [];
-
-        // Collect all draws, tagging them with a month order for sorting
+        // Collect all draws and tag them with a monthOrder for sorting.
         snapshot.forEach((doc) => {
             const drawData = doc.data();
             drawData.id = doc.id;
@@ -150,7 +162,7 @@ export async function POST(req) {
             allDraws.push(drawData);
         });
 
-        // Sort the draws first by month order and then by index (descending)
+        // Sort the draws by monthOrder and then by index (descending).
         allDraws.sort((a, b) => {
             if (a.monthOrder !== b.monthOrder) {
                 return a.monthOrder - b.monthOrder;
@@ -158,10 +170,10 @@ export async function POST(req) {
             return b.index - a.index;
         });
 
-        // Get the latest 4 draws from the sorted list (if needed for context)
+        // (Optional) Use the latest 4 draws if needed for context.
         const draws = allDraws.slice(0, 4);
 
-        // Generate Pick 4 draws based on the latest draw and provided exclusions
+        // Generate Pick4 draws based on the latest draw and provided exclusions.
         const generatedDraws = generateDraws(3, draws[0], excludedNumbers);
 
         return new Response(JSON.stringify(generatedDraws), {
@@ -179,3 +191,4 @@ export async function POST(req) {
         });
     }
 }
+
