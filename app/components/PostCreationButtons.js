@@ -112,13 +112,13 @@ const PostActionButtons = () => {
 
             <Collapse in={showButtons}>
                 <div>
-                    <LoadingButton
-                        action="createPost"
-                        color="primary"
-                        gradient="linear-gradient(to right, #4CAF50, #45a049)"
-                    >
-                        Create Post
-                    </LoadingButton>
+                    {/*<LoadingButton*/}
+                    {/*    action="createPost"*/}
+                    {/*    color="primary"*/}
+                    {/*    gradient="linear-gradient(to right, #4CAF50, #45a049)"*/}
+                    {/*>*/}
+                    {/*    Create Post*/}
+                    {/*</LoadingButton>*/}
                     <LoadingButton
                         action="createAllPosts"
                         color="secondary"

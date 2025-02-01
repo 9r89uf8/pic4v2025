@@ -148,15 +148,15 @@ const HomePage = () => {
       <Box sx={{ width: '100%' }}>
         <Container maxWidth="sm">
           <Item elevation={4}>
-            <Typography variant="h6" sx={{ mb: 2, color: '#ffc300' }}>
-              Select Numbers to Exclude
-            </Typography>
+            {/*<Typography variant="h6" sx={{ mb: 2, color: '#ffc300' }}>*/}
+            {/*  Select Numbers to Exclude*/}
+            {/*</Typography>*/}
 
-            <Stack spacing={3}>
-              {renderNumberSelection('first', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'First Position')}
-              {renderNumberSelection('second', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'Second Position')}
-              {renderNumberSelection('third', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'Third Position')}
-            </Stack>
+            {/*<Stack spacing={3}>*/}
+            {/*  {renderNumberSelection('first', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'First Position')}*/}
+            {/*  {renderNumberSelection('second', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'Second Position')}*/}
+            {/*  {renderNumberSelection('third', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'Third Position')}*/}
+            {/*</Stack>*/}
 
             <ButtonGroup variant="contained" aria-label="Basic button group">
               <Button
@@ -177,7 +177,7 @@ const HomePage = () => {
 
               <Button
                   variant="contained"
-                  disabled={loading}
+                  disabled={true}
                   size="large"
                   onClick={handleStraight}
                   sx={{
@@ -192,21 +192,21 @@ const HomePage = () => {
               </Button>
             </ButtonGroup>
 
-            <Button
-                variant="contained"
-                disabled={loading}
-                size="large"
-                onClick={handleCheck}
-                sx={{
-                  mt: 3,
-                  mb: 1,
-                  background: 'linear-gradient(to right, #f8f9fa, #e9ecef)',
-                  color: 'black',
-                  minWidth: 200,
-                }}
-            >
-              Check
-            </Button>
+            {/*<Button*/}
+            {/*    variant="contained"*/}
+            {/*    disabled={loading}*/}
+            {/*    size="large"*/}
+            {/*    onClick={handleCheck}*/}
+            {/*    sx={{*/}
+            {/*      mt: 3,*/}
+            {/*      mb: 1,*/}
+            {/*      background: 'linear-gradient(to right, #f8f9fa, #e9ecef)',*/}
+            {/*      color: 'black',*/}
+            {/*      minWidth: 200,*/}
+            {/*    }}*/}
+            {/*>*/}
+            {/*  Check*/}
+            {/*</Button>*/}
 
             {numbers && numbers.length > 0 && (
                 <Box display="flex" flexDirection="column" alignItems="center">
