@@ -1,5 +1,5 @@
 // app/api/posts/route.js
-//90 possible combinations
+// 90 possible combinations (after applying ordering & exclusion rules)
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/app/utils/firebaseAdmin';
 
@@ -28,52 +28,47 @@ const getMonths = () => {
     return [monthNames[previousMonthIndex], monthNames[currentMonthIndex], monthNames[twoMonthsAgoIndex]];
 };
 
-
-
 function isExcluded(num, position, excludedNumbers) {
     if (position === 0) return excludedNumbers.first.includes(num);
     if (position === 1) return excludedNumbers.second.includes(num);
     if (position === 2) return excludedNumbers.third.includes(num);
+    if (position === 3) return excludedNumbers.fourth ? excludedNumbers.fourth.includes(num) : false;
     return false;
 }
 
 function generateDraws(numberOfDraws = 5, latestDraw, excludedNumbers) {
+    // Used sets for ensuring that no number is re-used in the same digit position.
     const usedFirstNumbers = new Set();
     const usedSecondNumbers = new Set();
     const usedThirdNumbers = new Set();
+    const usedFourthNumbers = new Set();
     const draws = [];
 
     function isValidDraw(draw) {
-        const [first, second, third] = draw;
+        const [first, second, third, fourth] = draw;
 
-        // Check excluded numbers
-        for (let i = 0; i < 3; i++) {
+        // Check against any excluded numbers provided
+        for (let i = 0; i < 4; i++) {
             if (isExcluded(draw[i], i, excludedNumbers)) return false;
         }
 
-        // Check for repeating numbers in the draw
-        if (new Set(draw).size !== 3) return false;
+        // Ensure all four digits are distinct
+        if (new Set(draw).size !== 4) return false;
 
-        // Check if numbers are in correct ranges and order
+        // Validate digit ranges
         if (!(first >= 0 && first <= 2)) return false;
-        if (!(second >= 3 && second <= 6)) return false;
-        if (!(third >= 7 && third <= 9)) return false;
+        if (!(second >= 2 && second <= 5)) return false;
+        if (!(third >= 4 && third <= 7)) return false;
+        if (!(fourth >= 7 && fourth <= 9)) return false;
 
-        // Check if numbers are in ascending order
-        if (!(first < second && second < third)) return false;
+        // Ensure the numbers are in strictly ascending order
+        if (!(first < second && second < third && third < fourth)) return false;
 
-        // Rule 6: if first number is 2 or 3, second number can't be 2 or 3
-        // if ((first === 2) && (second === 2)) return false;
-        // if ((first === 3) && (second === 3)) return false;
-
-        // Rule 7: if second number is 6 or 7, third number can't be 6 or 7
-        // if ((second === 6) && (third === 6)) return false;
-        // if ((second === 7) && (third === 7)) return false;
-
-        // Rule 8: Check if number has been used in same position before
+        // Ensure numbers have not been used in the same position before
         if (usedFirstNumbers.has(first)) return false;
         if (usedSecondNumbers.has(second)) return false;
         if (usedThirdNumbers.has(third)) return false;
+        if (usedFourthNumbers.has(fourth)) return false;
 
         return true;
     }
@@ -83,23 +78,25 @@ function generateDraws(numberOfDraws = 5, latestDraw, excludedNumbers) {
         let attempts = 0;
 
         while (attempts < maxAttempts) {
-            const first = Math.floor(Math.random() * 3);    // 0-2
-            const second = Math.floor(Math.random() * 4) + 3; // 3-6
-            const third = Math.floor(Math.random() * 3) + 7;  // 7-9
+            // Generate each digit according to the new ranges:
+            const first = Math.floor(Math.random() * 3);         // 0-2
+            const second = Math.floor(Math.random() * 4) + 2;      // 2-5
+            const third = Math.floor(Math.random() * 4) + 4;       // 4-7
+            const fourth = Math.floor(Math.random() * 3) + 7;      // 7-9
 
-            const draw = [first, second, third];
+            const draw = [first, second, third, fourth];
 
             if (isValidDraw(draw)) {
                 usedFirstNumbers.add(first);
                 usedSecondNumbers.add(second);
                 usedThirdNumbers.add(third);
+                usedFourthNumbers.add(fourth);
                 return draw;
             }
-
             attempts++;
         }
 
-        return null; // Could not generate valid draw
+        return null; // Could not generate a valid draw
     }
 
     while (draws.length < numberOfDraws) {
@@ -113,15 +110,23 @@ function generateDraws(numberOfDraws = 5, latestDraw, excludedNumbers) {
     return draws;
 }
 
-
-// Modified POST handler
+// Modified POST handler for generating pick4 draws
 export async function POST(req) {
     try {
         const [prevMonth, currentMonth] = getMonths();
         const firestore = adminDb.firestore();
-        const { excludedNumbers = { first: [], second: [], third: [] } } = await req.json();
+        const body = await req.json();
 
-        // Query for current and previous month
+        // Ensure excludedNumbers includes keys for all four positions.
+        const excludedNumbersInput = body.excludedNumbers || {};
+        const excludedNumbers = {
+            first: excludedNumbersInput.first || [],
+            second: excludedNumbersInput.second || [],
+            third: excludedNumbersInput.third || [],
+            fourth: excludedNumbersInput.fourth || [],
+        };
+
+        // Query for draws from the current and previous months
         const drawsCollection = firestore
             .collection("draws")
             .where("drawMonth", "in", [currentMonth, prevMonth]);
@@ -137,7 +142,7 @@ export async function POST(req) {
 
         const allDraws = [];
 
-        // First pass: collect all draws with monthOrder
+        // Collect all draws, tagging them with a month order for sorting
         snapshot.forEach((doc) => {
             const drawData = doc.data();
             drawData.id = doc.id;
@@ -145,7 +150,7 @@ export async function POST(req) {
             allDraws.push(drawData);
         });
 
-        // Sort draws by monthOrder and index
+        // Sort the draws first by month order and then by index (descending)
         allDraws.sort((a, b) => {
             if (a.monthOrder !== b.monthOrder) {
                 return a.monthOrder - b.monthOrder;
@@ -153,11 +158,13 @@ export async function POST(req) {
             return b.index - a.index;
         });
 
+        // Get the latest 4 draws from the sorted list (if needed for context)
         const draws = allDraws.slice(0, 4);
-// Test the function
-        const drawsS = generateDraws(3, draws[0], excludedNumbers);
 
-        return new Response(JSON.stringify(drawsS), {
+        // Generate Pick 4 draws based on the latest draw and provided exclusions
+        const generatedDraws = generateDraws(3, draws[0], excludedNumbers);
+
+        return new Response(JSON.stringify(generatedDraws), {
             status: 200,
             headers: {
                 'Content-Type': 'application/json',
@@ -168,9 +175,7 @@ export async function POST(req) {
         console.error(error.message);
         return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
         });
     }
 }

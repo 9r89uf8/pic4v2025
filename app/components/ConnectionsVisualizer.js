@@ -8,6 +8,11 @@ const ConnectionsVisualizer = ({ numbers }) => {
     const numberXOffset = 78;
     const numberYOffset = 27;
 
+    // Determine the number of columns based on the first combination.
+    const columnCount =
+        numbers && numbers.length > 0 ? numbers[0].length : 3;
+
+    // Build a set of used numbers per column.
     const usedNumbers = numbers.reduce((acc, combination) => {
         combination.forEach((num, index) => {
             if (!acc[index]) acc[index] = new Set();
@@ -21,18 +26,20 @@ const ConnectionsVisualizer = ({ numbers }) => {
         return totalHeight - (position * usableHeight + margin) + 8;
     };
 
+    // Compute x-positions evenly based on the available width.
     const getXPosition = (columnIndex) => {
-        return 195 + columnIndex * 293;
+        const leftMargin = 100;
+        const rightMargin = totalWidth - 100;
+        const colSpacing = (rightMargin - leftMargin) / (columnCount - 1);
+        return leftMargin + columnIndex * colSpacing;
     };
 
+    // Adjust number x-position so that the circle with the number doesn’t overlap the vertical line.
     const getNumberXPosition = (columnIndex) => {
-        if (columnIndex === 0) {
-            return getXPosition(columnIndex) - numberXOffset;
-        }
-        if (columnIndex === 1) {
-            return getXPosition(columnIndex);
-        }
-        return getXPosition(columnIndex) + numberXOffset;
+        if (columnIndex === 0) return getXPosition(columnIndex) - numberXOffset;
+        if (columnIndex === columnCount - 1)
+            return getXPosition(columnIndex) + numberXOffset;
+        return getXPosition(columnIndex);
     };
 
     const colors = [
@@ -51,19 +58,34 @@ const ConnectionsVisualizer = ({ numbers }) => {
     };
 
     /**
-     * Returns the background color for the circle around each digit.
-     * - If exactly 3 draws: use the "range" logic (0–2 => col0, 3–6 => col1, 7–9 => col2).
-     * - Otherwise: if this digit is actually used in that column, make it blue; else white.
+     * Returns the background color for the circle behind each digit.
+     *
+     * For Pick 4 (4-digit draws):
+     *  - Column 0: digits 0–2
+     *  - Column 1: digits 2–5
+     *  - Column 2: digits 4–7
+     *  - Column 3: digits 7–9
+     *
+     * For Pick 3 (fallback):
+     *  - Column 0: digits 0–2
+     *  - Column 1: digits 3–6
+     *  - Column 2: digits 7–9
+     *
+     * If a digit is “used” in that column, blue is returned.
      */
     const getBackgroundColor = (number, columnIndex) => {
-        if (numbers.length === 3) {
-            // Range logic
+        if (columnCount === 4) {
+            if (columnIndex === 0 && number >= 0 && number <= 2) return '#3B82F6';
+            if (columnIndex === 1 && number >= 2 && number <= 5) return '#3B82F6';
+            if (columnIndex === 2 && number >= 4 && number <= 7) return '#3B82F6';
+            if (columnIndex === 3 && number >= 7 && number <= 9) return '#3B82F6';
+            return 'white';
+        } else if (columnCount === 3) {
             if (columnIndex === 0 && number >= 0 && number <= 2) return '#3B82F6';
             if (columnIndex === 1 && number >= 3 && number <= 6) return '#3B82F6';
             if (columnIndex === 2 && number >= 7 && number <= 9) return '#3B82F6';
             return 'white';
         } else {
-            // For any other number of draws, only highlight "used" numbers
             return isNumberUsed(number, columnIndex) ? '#3B82F6' : 'white';
         }
     };
@@ -75,7 +97,7 @@ const ConnectionsVisualizer = ({ numbers }) => {
                 style={{ width: '100%', height: '100%' }}
             >
                 {/* Draw vertical lines for each column */}
-                {[0, 1, 2].map((columnIndex) => (
+                {Array.from({ length: columnCount }, (_, columnIndex) => (
                     <line
                         key={`vline-${columnIndex}`}
                         x1={getXPosition(columnIndex)}
@@ -87,34 +109,33 @@ const ConnectionsVisualizer = ({ numbers }) => {
                     />
                 ))}
 
-                {/* Draw connections for each combination FIRST */}
+                {/* Draw connection lines for each combination */}
                 {numbers.map((combination, combIndex) => (
                     <g key={`combination-${combIndex}`}>
-                        <line
-                            x1={getXPosition(0)}
-                            y1={getYPosition(combination[0])}
-                            x2={getXPosition(1)}
-                            y2={getYPosition(combination[1])}
-                            stroke={colors[combIndex % colors.length]}
-                            strokeWidth="7"
-                            strokeOpacity="0.6"
-                        />
-                        <line
-                            x1={getXPosition(1)}
-                            y1={getYPosition(combination[1])}
-                            x2={getXPosition(2)}
-                            y2={getYPosition(combination[2])}
-                            stroke={colors[combIndex % colors.length]}
-                            strokeWidth="7"
-                            strokeOpacity="0.6"
-                        />
+                        {combination.map((num, idx) => {
+                            if (idx < combination.length - 1) {
+                                return (
+                                    <line
+                                        key={`line-${combIndex}-${idx}`}
+                                        x1={getXPosition(idx)}
+                                        y1={getYPosition(combination[idx])}
+                                        x2={getXPosition(idx + 1)}
+                                        y2={getYPosition(combination[idx + 1])}
+                                        stroke={colors[combIndex % colors.length]}
+                                        strokeWidth="7"
+                                        strokeOpacity="0.6"
+                                    />
+                                );
+                            }
+                            return null;
+                        })}
                     </g>
                 ))}
 
-                {/* Draw all numbers and circles for each column LAST */}
-                {[0, 1, 2].map((columnIndex) => (
+                {/* Draw circles for the drawn points and the background for all numbers */}
+                {Array.from({ length: columnCount }, (_, columnIndex) => (
                     <React.Fragment key={`col-${columnIndex}`}>
-                        {/* Draw highlight circles for selected numbers on top */}
+                        {/* Highlight circles for each drawn number in this column */}
                         {numbers.map((combination, combIndex) => (
                             <circle
                                 key={`point-${combIndex}-${combination[columnIndex]}`}
@@ -125,9 +146,9 @@ const ConnectionsVisualizer = ({ numbers }) => {
                                 opacity="0.8"
                             />
                         ))}
-                        {[...Array(10)].map((_, i) => (
+                        {/* Background circles with number labels (0 to 9) */}
+                        {Array.from({ length: 10 }, (_, i) => (
                             <g key={`text-${columnIndex}-${i}`}>
-                                {/* Circle background (blue or white) */}
                                 <circle
                                     cx={getNumberXPosition(columnIndex)}
                                     cy={getYPosition(i) - 28 + numberYOffset}
@@ -156,7 +177,6 @@ const ConnectionsVisualizer = ({ numbers }) => {
 };
 
 export default ConnectionsVisualizer;
-
 
 
 
