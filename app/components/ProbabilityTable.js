@@ -29,15 +29,15 @@ const ProbabilityDisplay = () => {
             scenarios: [
                 {
                     subLabel: 'Without Fireball',
-                    combos: 216,
-                    probability: '21.6% of 1,000 pass ranges',
+                    combos: 2472,
+                    probability: '24.72% of 10,000 pass ranges',
                     rate: '1 every 4.63 draws',
                 },
                 {
                     subLabel: 'With Fireball',
-                    combos: 216,
-                    probability: '43.2% of 1,000 pass ranges',
-                    rate: '1 every 2.31 draws',
+                    combos: 2472,
+                    probability: 'around 46.2% of 10,000 pass ranges',
+                    rate: '1 every 2.01 draws',
                 },
             ],
         },
@@ -46,15 +46,15 @@ const ProbabilityDisplay = () => {
             scenarios: [
                 {
                     subLabel: 'Without Fireball',
-                    combos: 36,
-                    probability: '21.6% of 1,000 pass ranges',
+                    combos: 103,
+                    probability: '24.72% of 10,000 pass ranges',
                     rate: '1 every 4.63 draws',
                 },
                 {
                     subLabel: 'With Fireball',
-                    combos: 36,
-                    probability: '43.2% of 1,000 pass ranges',
-                    rate: '1 every 2.31 draws',
+                    combos: 103,
+                    probability: 'around 46.2% of 10,000 pass ranges',
+                    rate: '1 every 2.01 draws',
                 },
             ],
         },

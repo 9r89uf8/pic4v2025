@@ -18,7 +18,7 @@ export async function GET(req) {
         const page = await browser.newPage();
 
         const checkResults = async () => {
-            await page.goto('https://www.illinoislottery.com/dbg/results/pick3?page=1', {
+            await page.goto('https://www.illinoislottery.com/dbg/results/pick4?page=1', {
                 waitUntil: 'networkidle0'
             });
 
@@ -30,8 +30,8 @@ export async function GET(req) {
             const divsWithClassDfs = await page.evaluate(() => Array.from(document.querySelectorAll('.results__list-item')).slice(0, 9).map(elem => ({
                 dateInfo: elem.querySelector('.dbg-results__date-info').textContent,
                 drawInfo: elem.querySelector('.dbg-results__draw-info').textContent,
-                pick: Array.from(elem.querySelectorAll(".grid-ball--pick3-primary")).map(e => parseInt(e.textContent.replace(/[^0-9]/g, ""))),
-                fireball: elem.querySelector('.grid-ball--pick3-secondary--selected')?.textContent.trim() || null,
+                pick: Array.from(elem.querySelectorAll(".grid-ball--pick4-primary")).map(e => parseInt(e.textContent.replace(/[^0-9]/g, ""))),
+                fireball: elem.querySelector('.grid-ball--pick4-secondary--selected')?.textContent.trim() || null,
             })));
 
             // Create an array of 9 draws, filling missing data with null values
@@ -39,7 +39,7 @@ export async function GET(req) {
                 if (index < divsWithClassDfs.length) {
                     const draw = divsWithClassDfs[index];
                     const { dateInfo, drawInfo, pick, fireball } = draw;
-                    let [firstNumber = null, secondNumber = null, thirdNumber = null] = pick;
+                    let [firstNumber = null, secondNumber = null, thirdNumber = null, fourthNumber = null] = pick;
 
                     let r = parseInt(dateInfo.match(/\d+/)?.[0]) || 0;
                     let y = drawInfo.replace(/[^a-zA-Z]+/g, "");
@@ -51,20 +51,22 @@ export async function GET(req) {
 
                     // Create sorted version
                     let sortedNumbers = [...pick];
-                    if (firstNumber !== null && secondNumber !== null && thirdNumber !== null) {
+                    if (firstNumber !== null && secondNumber !== null && thirdNumber !== null && fourthNumber !== null) {
                         sortedNumbers.sort((a, b) => a - b);
                     }
-                    let [sortedFirst, sortedSecond, sortedThird] = sortedNumbers;
+                    let [sortedFirst, sortedSecond, sortedThird, sortedFourth] = sortedNumbers;
 
                     return {
                         // Original numbers
                         originalFirstNumber: firstNumber,
                         originalSecondNumber: secondNumber,
                         originalThirdNumber: thirdNumber,
+                        originalFourthNumber: fourthNumber,
                         // Sorted numbers
                         sortedFirstNumber: sortedFirst,
                         sortedSecondNumber: sortedSecond,
                         sortedThirdNumber: sortedThird,
+                        sortedFourthNumber: sortedFourth,
                         fireball: fireball ? parseInt(fireball) : null,
                         dateInfo,
                         drawInfo,
@@ -75,9 +77,11 @@ export async function GET(req) {
                         originalFirstNumber: null,
                         originalSecondNumber: null,
                         originalThirdNumber: null,
+                        originalFourthNumber: null,
                         sortedFirstNumber: null,
                         sortedSecondNumber: null,
                         sortedThirdNumber: null,
+                        sortedFourthNumber: null,
                         fireball: null,
                         dateInfo: null,
                         drawInfo: null,
@@ -93,13 +97,13 @@ export async function GET(req) {
             const originalDrawSum = currentDraw.originalFirstNumber !== null &&
             currentDraw.originalSecondNumber !== null &&
             currentDraw.originalThirdNumber !== null
-                ? currentDraw.originalFirstNumber + currentDraw.originalSecondNumber + currentDraw.originalThirdNumber
+                ? currentDraw.originalFirstNumber + currentDraw.originalSecondNumber + currentDraw.originalThirdNumber + currentDraw.originalFourthNumber
                 : null;
 
             const sortedDrawSum = currentDraw.sortedFirstNumber !== null &&
             currentDraw.sortedSecondNumber !== null &&
             currentDraw.sortedThirdNumber !== null
-                ? currentDraw.sortedFirstNumber + currentDraw.sortedSecondNumber + currentDraw.sortedThirdNumber
+                ? currentDraw.sortedFirstNumber + currentDraw.sortedSecondNumber + currentDraw.sortedThirdNumber + currentDraw.sortedFourthNumber
                 : null;
 
             const completeCurrentDraw = {
@@ -107,37 +111,21 @@ export async function GET(req) {
                 originalFirstNumber: currentDraw.originalFirstNumber,
                 originalSecondNumber: currentDraw.originalSecondNumber,
                 originalThirdNumber: currentDraw.originalThirdNumber,
+                originalFourth: currentDraw.originalFourthNumber,
                 originalDraw: currentDraw.originalFirstNumber !== null
-                    ? `${currentDraw.originalFirstNumber}${currentDraw.originalSecondNumber}${currentDraw.originalThirdNumber}`
+                    ? `${currentDraw.originalFirstNumber}${currentDraw.originalSecondNumber}${currentDraw.originalThirdNumber}${currentDraw.originalFourthNumber}`
                     : null,
                 originalDrawSum,
-                originalFirstAndSecond: currentDraw.originalFirstNumber !== null
-                    ? `${currentDraw.originalFirstNumber}${currentDraw.originalSecondNumber}`
-                    : null,
-                originalSecondAndThird: currentDraw.originalSecondNumber !== null
-                    ? `${currentDraw.originalSecondNumber}${currentDraw.originalThirdNumber}`
-                    : null,
-                originalFirstAndThird: currentDraw.originalFirstNumber !== null
-                    ? `${currentDraw.originalFirstNumber}${currentDraw.originalThirdNumber}`
-                    : null,
 
                 // Sorted order data
                 sortedFirstNumber: currentDraw.sortedFirstNumber,
                 sortedSecondNumber: currentDraw.sortedSecondNumber,
                 sortedThirdNumber: currentDraw.sortedThirdNumber,
+                sortedFourthNumber: currentDraw.sortedFourthNumber,
                 sortedDraw: currentDraw.sortedFirstNumber !== null
-                    ? `${currentDraw.sortedFirstNumber}${currentDraw.sortedSecondNumber}${currentDraw.sortedThirdNumber}`
+                    ? `${currentDraw.sortedFirstNumber}${currentDraw.sortedSecondNumber}${currentDraw.sortedThirdNumber}${currentDraw.sortedFourthNumber}`
                     : null,
                 sortedDrawSum,
-                sortedFirstAndSecond: currentDraw.sortedFirstNumber !== null
-                    ? `${currentDraw.sortedFirstNumber}${currentDraw.sortedSecondNumber}`
-                    : null,
-                sortedSecondAndThird: currentDraw.sortedSecondNumber !== null
-                    ? `${currentDraw.sortedSecondNumber}${currentDraw.sortedThirdNumber}`
-                    : null,
-                sortedFirstAndThird: currentDraw.sortedFirstNumber !== null
-                    ? `${currentDraw.sortedFirstNumber}${currentDraw.sortedThirdNumber}`
-                    : null,
 
                 // Previous numbers (original order)
                 originalPreviousFirst1: allDraws[1]?.originalFirstNumber ?? null,
@@ -167,6 +155,15 @@ export async function GET(req) {
                 originalPreviousThird7: allDraws[7]?.originalThirdNumber ?? null,
                 originalPreviousThird8: allDraws[8]?.originalThirdNumber ?? null,
 
+                originalPreviousFourth1: allDraws[1]?.originalFourthNumber ?? null,
+                originalPreviousFourth2: allDraws[2]?.originalFourthNumber ?? null,
+                originalPreviousFourth3: allDraws[3]?.originalFourthNumber ?? null,
+                originalPreviousFourth4: allDraws[4]?.originalFourthNumber ?? null,
+                originalPreviousFourth5: allDraws[5]?.originalFourthNumber ?? null,
+                originalPreviousFourth6: allDraws[6]?.originalFourthNumber ?? null,
+                originalPreviousFourth7: allDraws[7]?.originalFourthNumber ?? null,
+                originalPreviousFourth8: allDraws[8]?.originalFourthNumber ?? null,
+
                 // Previous numbers (sorted order)
                 sortedPreviousFirst1: allDraws[1]?.sortedFirstNumber ?? null,
                 sortedPreviousFirst2: allDraws[2]?.sortedFirstNumber ?? null,
@@ -194,6 +191,15 @@ export async function GET(req) {
                 sortedPreviousThird6: allDraws[6]?.sortedThirdNumber ?? null,
                 sortedPreviousThird7: allDraws[7]?.sortedThirdNumber ?? null,
                 sortedPreviousThird8: allDraws[8]?.sortedThirdNumber ?? null,
+
+                sortedPreviousFourth1: allDraws[1]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth2: allDraws[2]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth3: allDraws[3]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth4: allDraws[4]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth5: allDraws[5]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth6: allDraws[6]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth7: allDraws[7]?.sortedFourthNumber ?? null,
+                sortedPreviousFourth8: allDraws[8]?.sortedFourthNumber ?? null,
 
                 // Common fields
                 fireball: currentDraw.fireball,
